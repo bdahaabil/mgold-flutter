@@ -17,6 +17,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: |
+          cat > .env <<EOF
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          EOF
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -63,6 +70,13 @@ jobs:
           if [ ! -f ios/Runner/GoogleService-Info.plist ]; then
             echo "${{ secrets.IOS_GOOGLE_SERVICES_PLIST }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
           fi
+
+      - name: Create .env file
+        run: |
+          cat > .env <<EOF
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          EOF
 
       - name: Install dependencies
         run: |
