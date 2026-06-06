@@ -44,6 +44,7 @@ jobs:
           username: ${{ secrets.HOSTINGER_USER }}
           password: ${{ secrets.HOSTINGER_PASSWORD }}
           port: ${{ secrets.HOSTINGER_PORT }}
+          timeout: 60s
           source: build/web/
           target: ${{ secrets.HOSTINGER_REMOTE_PATH }}
           strip_components: 2
