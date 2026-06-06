@@ -1,0 +1,63 @@
+name: Build Unsigned iOS IPA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:          # ← optional: allow manual trigger
+
+jobs:
+  build-ios-unsigned:
+    runs-on: macos-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4   # ← updated
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Restore GoogleService-Info.plist
+        run: |
+          if [ ! -f ios/Runner/GoogleService-Info.plist ]; then
+            echo "${{ secrets.IOS_GOOGLE_SERVICES_PLIST }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # flutter build ipa generates Podfile if missing and runs pod install internally
+      - name: Build unsigned IPA
+        run: |
+          flutter build ipa \
+            --no-codesign \
+            --verbose
+
+      - name: Package IPA if not already created
+        run: |
+          IPA=$(find build/ios/ipa -name "*.ipa" -type f | head -1)
+          if [ -n "$IPA" ]; then
+            echo "IPA found: $IPA"
+          else
+            echo "No .ipa — packaging manually from .app"
+            APP=$(find build/ios -name "*.app" -type d | head -1)
+            [ -z "$APP" ] && echo "ERROR: no .app bundle found" && exit 1
+            mkdir -p build/ios/ipa/Payload
+            cp -r "$APP" build/ios/ipa/Payload/
+            cd build/ios/ipa && zip -r Runner.ipa Payload/
+          fi
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-mgold-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+          if-no-files-found: error
