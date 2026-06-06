@@ -31,19 +31,16 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: flutter pub get
-
-      - name: Install CocoaPods dependencies
         run: |
+          flutter clean
+          flutter pub get
           cd ios
+          pod repo update || true
           pod install --repo-update
 
-      # flutter build ipa generates Podfile if missing and runs pod install internally
       - name: Build unsigned IPA
         run: |
-          flutter build ipa \
-            --no-codesign \
-            --verbose
+          flutter build ipa --no-codesign --release --verbose
 
       - name: Package IPA if not already created
         run: |
@@ -62,7 +59,7 @@ jobs:
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-mgold-ipa
+          name: ios-unsigned-ipa
           path: build/ios/ipa/*.ipa
           retention-days: 7
           if-no-files-found: error
