@@ -86,6 +86,33 @@ class LocalStore {
     }
   }
 
+  void updatePurchase(Purchase p) {
+    final i = purchases.indexWhere((x) => x.id == p.id);
+    if (i < 0) return;
+    final old = purchases[i];
+    if (old.supplierId != p.supplierId) {
+      _adjustSupplierBalance(old.supplierId, -old.totalMyr);
+      _adjustSupplierBalance(p.supplierId, p.totalMyr);
+    } else {
+      _adjustSupplierBalance(p.supplierId, p.totalMyr - old.totalMyr);
+    }
+    purchases[i] = Purchase(
+      id: p.id,
+      lotId: p.lotId,
+      supplierId: p.supplierId,
+      claimedPurity: p.claimedPurity,
+      weightG: p.weightG,
+      pricePerG: p.pricePerG,
+      totalMyr: p.totalMyr,
+      purchaseDate: p.purchaseDate,
+      notes: p.notes,
+      createdAt: p.createdAt,
+      supplierName: suppliers
+          .firstWhere((s) => s.id == p.supplierId, orElse: () => suppliers.first)
+          .name,
+    );
+  }
+
   Purchase addPurchase(Purchase p) {
     final purchase = Purchase(
       id: _id(),
@@ -112,6 +139,13 @@ class LocalStore {
     ));
     _adjustSupplierBalance(p.supplierId, purchase.totalMyr);
     return purchase;
+  }
+
+  void updateAssay(AssayResult a) {
+    final i = assayResults.indexWhere((x) => x.id == a.id);
+    if (i < 0) return;
+    assayResults[i] = a;
+    _updatePurchaseHoldingsPurity(a.lotId, a.actualPurity);
   }
 
   AssayResult addAssay(AssayResult a, {required double claimedPurity, required double pricePerG, String? supplierId}) {
@@ -198,6 +232,28 @@ class LocalStore {
       updateLotStatus(r.lotId, LotStatus.refined);
     }
     return job;
+  }
+
+  void updateSale(Sale s) {
+    final i = sales.indexWhere((x) => x.id == s.id);
+    if (i < 0) return;
+    final existing = sales[i];
+    sales[i] = Sale(
+      id: s.id,
+      lotId: s.lotId,
+      saleType: s.saleType,
+      weightG: s.weightG,
+      purity: s.purity,
+      pricePerG: s.pricePerG,
+      totalMyr: s.totalMyr,
+      customerName: s.customerName,
+      saleDate: s.saleDate,
+      holdingId: s.holdingId,
+      cogsMyr: s.cogsMyr,
+      notes: s.notes,
+      createdAt: s.createdAt,
+      lotNumber: s.lotNumber ?? existing.lotNumber,
+    );
   }
 
   Sale addSale(Sale s) {

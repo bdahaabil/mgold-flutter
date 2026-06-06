@@ -45,4 +45,13 @@ class AssayResult {
         'assay_date': assayDate.toIso8601String().split('T').first,
         'notes': notes,
       };
+
+  Map<String, dynamic> toUpdateJson() => {
+        'purchase_id': purchaseId,
+        'actual_purity': actualPurity,
+        'actual_weight_g': actualWeightG,
+        'assay_lab': assayLab,
+        'assay_date': assayDate.toIso8601String().split('T').first,
+        'notes': notes,
+      };
 }

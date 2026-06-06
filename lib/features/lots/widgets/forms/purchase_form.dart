@@ -8,8 +8,16 @@ import '../../../../core/providers/supplier_providers.dart';
 import '../../../../core/widgets/form_dialog.dart';
 
 class PurchaseFormDialog extends ConsumerStatefulWidget {
-  const PurchaseFormDialog({super.key, required this.lotId});
+  const PurchaseFormDialog({
+    super.key,
+    required this.lotId,
+    this.initial,
+  });
+
   final String lotId;
+  final Purchase? initial;
+
+  bool get isEditing => initial != null;
 
   @override
   ConsumerState<PurchaseFormDialog> createState() => _PurchaseFormDialogState();
@@ -22,6 +30,19 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
   final _price = TextEditingController();
   final _notes = TextEditingController();
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    if (initial != null) {
+      _supplierId = initial.supplierId;
+      _purity.text = initial.claimedPurity.toString();
+      _weight.text = initial.weightG.toString();
+      _price.text = initial.pricePerG.toString();
+      _notes.text = initial.notes ?? '';
+    }
+  }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -40,7 +61,7 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
   Widget build(BuildContext context) {
     final suppliers = ref.watch(suppliersProvider);
     return FormDialog(
-      title: 'Add Purchase',
+      title: widget.isEditing ? 'Edit Purchase' : 'Add Purchase',
       saving: _saving,
       onSave: _save,
       children: [
@@ -111,18 +132,24 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
     setState(() => _saving = true);
     try {
       final repo = ref.read(lotRepositoryProvider);
-      await repo.addPurchase(Purchase(
-        id: '',
+      final purchase = Purchase(
+        id: widget.initial?.id ?? '',
         lotId: widget.lotId,
         supplierId: supplierId,
         claimedPurity: purity,
         weightG: weight,
         pricePerG: price,
         totalMyr: weight * price,
-        purchaseDate: DateTime.now(),
+        purchaseDate: widget.initial?.purchaseDate ?? DateTime.now(),
         notes: _notes.text.isEmpty ? null : _notes.text,
-        createdAt: DateTime.now(),
-      ));
+        createdAt: widget.initial?.createdAt ?? DateTime.now(),
+        supplierName: widget.initial?.supplierName,
+      );
+      if (widget.isEditing) {
+        await repo.updatePurchase(purchase);
+      } else {
+        await repo.addPurchase(purchase);
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) _showError('Failed to save purchase: $e');

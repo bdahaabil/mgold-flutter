@@ -14,6 +14,8 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/empty_state.dart';
 
+enum TimelineEventType { purchase, assay, refining, exchange, sale, expense, payment }
+
 class TimelineEvent {
   const TimelineEvent({
     required this.date,
@@ -21,6 +23,8 @@ class TimelineEvent {
     required this.subtitle,
     required this.icon,
     required this.color,
+    this.type,
+    this.model,
   });
 
   final DateTime date;
@@ -28,6 +32,8 @@ class TimelineEvent {
   final String subtitle;
   final IconData icon;
   final Color color;
+  final TimelineEventType? type;
+  final Object? model;
 }
 
 class LotTimeline extends StatelessWidget {
@@ -40,6 +46,9 @@ class LotTimeline extends StatelessWidget {
     required this.sales,
     required this.expenses,
     required this.payments,
+    this.onEditPurchase,
+    this.onEditAssay,
+    this.onEditSale,
   });
 
   final List<Purchase> purchases;
@@ -49,6 +58,9 @@ class LotTimeline extends StatelessWidget {
   final List<Sale> sales;
   final List<Expense> expenses;
   final List<Payment> payments;
+  final void Function(Purchase)? onEditPurchase;
+  final void Function(AssayResult)? onEditAssay;
+  final void Function(Sale)? onEditSale;
 
   List<TimelineEvent> _events() {
     final events = <TimelineEvent>[];
@@ -60,6 +72,8 @@ class LotTimeline extends StatelessWidget {
             '${formatWeight(p.weightG)} @ ${formatPurityLabel(p.claimedPurity)} · ${formatMyr(p.totalMyr)}',
         icon: Icons.shopping_cart_outlined,
         color: Colors.blue,
+        type: TimelineEventType.purchase,
+        model: p,
       ));
     }
     for (final a in assays) {
@@ -70,6 +84,8 @@ class LotTimeline extends StatelessWidget {
             '${formatWeight(a.actualWeightG)} @ ${formatPurityLabel(a.actualPurity)} · Adj ${formatMyr(a.adjustmentMyr)}',
         icon: Icons.science_outlined,
         color: Colors.purple,
+        type: TimelineEventType.assay,
+        model: a,
       ));
     }
     for (final r in refinings) {
@@ -80,6 +96,7 @@ class LotTimeline extends StatelessWidget {
             'In ${formatWeight(r.inputWeightG)}${r.outputWeightG != null ? ' → Out ${formatWeight(r.outputWeightG!)}' : ''}',
         icon: Icons.precision_manufacturing_outlined,
         color: Colors.orange,
+        type: TimelineEventType.refining,
       ));
     }
     for (final x in exchanges) {
@@ -92,6 +109,7 @@ class LotTimeline extends StatelessWidget {
             '${x.counterparty != null ? ' · ${x.counterparty}' : ''}',
         icon: Icons.swap_horiz,
         color: Colors.indigo,
+        type: TimelineEventType.exchange,
       ));
     }
     for (final s in sales) {
@@ -103,6 +121,8 @@ class LotTimeline extends StatelessWidget {
             '${s.cogsMyr != null ? ' · Profit ${formatMyr(s.profit)}' : ''}',
         icon: Icons.sell_outlined,
         color: Colors.green,
+        type: TimelineEventType.sale,
+        model: s,
       ));
     }
     for (final e in expenses) {
@@ -112,6 +132,7 @@ class LotTimeline extends StatelessWidget {
         subtitle: formatMyr(e.amountMyr),
         icon: Icons.receipt_long_outlined,
         color: Colors.red,
+        type: TimelineEventType.expense,
       ));
     }
     for (final p in payments) {
@@ -121,10 +142,31 @@ class LotTimeline extends StatelessWidget {
         subtitle: formatMyr(p.amountMyr),
         icon: Icons.payments_outlined,
         color: Colors.teal,
+        type: TimelineEventType.payment,
       ));
     }
     events.sort((a, b) => b.date.compareTo(a.date));
     return events;
+  }
+
+  VoidCallback? _editCallback(TimelineEvent e) {
+    switch (e.type) {
+      case TimelineEventType.purchase:
+        if (onEditPurchase != null && e.model is Purchase) {
+          return () => onEditPurchase!(e.model! as Purchase);
+        }
+      case TimelineEventType.assay:
+        if (onEditAssay != null && e.model is AssayResult) {
+          return () => onEditAssay!(e.model! as AssayResult);
+        }
+      case TimelineEventType.sale:
+        if (onEditSale != null && e.model is Sale) {
+          return () => onEditSale!(e.model! as Sale);
+        }
+      default:
+        return null;
+    }
+    return null;
   }
 
   @override
@@ -138,6 +180,7 @@ class LotTimeline extends StatelessWidget {
     }
     return Column(
       children: events.map((e) {
+        final onEdit = _editCallback(e);
         return AppCard(
           margin: EdgeInsets.only(bottom: 8.h),
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
@@ -180,6 +223,13 @@ class LotTimeline extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onEdit != null)
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: AppTokens.iconMd),
+                  tooltip: 'Edit',
+                  onPressed: onEdit,
+                  visualDensity: VisualDensity.compact,
+                ),
             ],
           ),
         );

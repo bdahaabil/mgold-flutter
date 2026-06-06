@@ -51,4 +51,14 @@ class Purchase {
         'purchase_date': purchaseDate.toIso8601String().split('T').first,
         'notes': notes,
       };
+
+  Map<String, dynamic> toUpdateJson() => {
+        'supplier_id': supplierId,
+        'claimed_purity': claimedPurity,
+        'weight_g': weightG,
+        'price_per_g': pricePerG,
+        'total_myr': totalMyr,
+        'purchase_date': purchaseDate.toIso8601String().split('T').first,
+        'notes': notes,
+      };
 }

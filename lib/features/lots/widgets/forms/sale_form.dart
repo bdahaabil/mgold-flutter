@@ -13,10 +13,14 @@ class SaleFormDialog extends ConsumerStatefulWidget {
     super.key,
     required this.lotId,
     this.holdings = const [],
+    this.initial,
   });
 
   final String lotId;
   final List<Holding> holdings;
+  final Sale? initial;
+
+  bool get isEditing => initial != null;
 
   @override
   ConsumerState<SaleFormDialog> createState() => _SaleFormDialogState();
@@ -35,18 +39,46 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
   List<Holding> get _active =>
       widget.holdings.where((h) => h.isInHand).toList();
 
+  List<Holding> get _holdingsForDropdown {
+    final active = _active;
+    final holdingId = widget.initial?.holdingId;
+    if (holdingId == null) return active;
+    final linked = widget.holdings.where((h) => h.id == holdingId).toList();
+    if (linked.isEmpty) return active;
+    if (active.any((h) => h.id == holdingId)) return active;
+    return [...active, linked.first];
+  }
+
   @override
   void initState() {
     super.initState();
-    final active = _active;
-    if (active.isNotEmpty) _applyHolding(active.first);
+    final initial = widget.initial;
+    if (initial != null) {
+      _type = initial.saleType;
+      _customer.text = initial.customerName;
+      _weight.text = initial.weightG.toString();
+      _purity.text = initial.purity.toString();
+      _price.text = initial.pricePerG.toString();
+      _notes.text = initial.notes ?? '';
+      if (initial.holdingId != null) {
+        final linked = widget.holdings
+            .where((h) => h.id == initial.holdingId)
+            .toList();
+        if (linked.isNotEmpty) _holding = linked.first;
+      }
+    } else {
+      final active = _active;
+      if (active.isNotEmpty) _applyHolding(active.first);
+    }
   }
 
   void _applyHolding(Holding h) {
     setState(() {
       _holding = h;
-      _purity.text = h.purity.toString();
-      _weight.text = h.weightG.toString();
+      if (!widget.isEditing) {
+        _purity.text = h.purity.toString();
+        _weight.text = h.weightG.toString();
+      }
     });
   }
 
@@ -71,16 +103,16 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final active = _active;
+    final holdings = _holdingsForDropdown;
     final cogs = _estimatedCogs;
     final profit = _estimatedProfit;
 
     final fields = <Widget>[
-      if (active.isNotEmpty)
+      if (holdings.isNotEmpty)
         DropdownButtonFormField<Holding>(
           value: _holding,
           decoration: const InputDecoration(labelText: 'Holding'),
-          items: active
+          items: holdings
               .map(
                 (h) => DropdownMenuItem(
                   value: h,
@@ -90,9 +122,11 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
                 ),
               )
               .toList(),
-          onChanged: (h) {
-            if (h != null) _applyHolding(h);
-          },
+          onChanged: widget.isEditing
+              ? null
+              : (h) {
+                  if (h != null) _applyHolding(h);
+                },
         ),
       DropdownButtonFormField<SaleType>(
         value: _type,
@@ -120,7 +154,7 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
         controller: _weight,
         decoration: InputDecoration(
           labelText: 'Weight (g)',
-          helperText: _holding != null
+          helperText: _holding != null && !widget.isEditing
               ? 'Max ${formatWeight(_holding!.weightG)}'
               : null,
         ),
@@ -134,7 +168,7 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
           hintText: 'e.g. 9999 = 100%, 9990 = 99.90%',
         ),
         keyboardType: TextInputType.number,
-        readOnly: _holding != null,
+        readOnly: _holding != null && !widget.isEditing,
       ),
       TextField(
         controller: _price,
@@ -160,7 +194,7 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
     ];
 
     return FormDialog(
-      title: 'Add Sale',
+      title: widget.isEditing ? 'Edit Sale' : 'Add Sale',
       saving: _saving,
       onSave: _save,
       children: fields,
@@ -175,26 +209,42 @@ class _SaleFormDialogState extends ConsumerState<SaleFormDialog> {
       _showError('Enter customer, weight, and price');
       return;
     }
-    if (_holding != null && weight > _holding!.weightG + 0.0001) {
+    if (!widget.isEditing &&
+        _holding != null &&
+        weight > _holding!.weightG + 0.0001) {
       _showError('Weight exceeds holding balance');
       return;
     }
     setState(() => _saving = true);
-    final repo = ref.read(lotRepositoryProvider);
-    await repo.addSale(Sale(
-      id: '',
-      lotId: widget.lotId,
-      saleType: _type,
-      weightG: weight,
-      purity: purity,
-      pricePerG: price,
-      totalMyr: weight * price,
-      customerName: _customer.text.trim(),
-      saleDate: DateTime.now(),
-      holdingId: _holding?.id,
-      notes: _notes.text.isEmpty ? null : _notes.text,
-      createdAt: DateTime.now(),
-    ));
-    if (mounted) Navigator.pop(context, true);
+    try {
+      final repo = ref.read(lotRepositoryProvider);
+      final cogs = _estimatedCogs ?? widget.initial?.cogsMyr;
+      final sale = Sale(
+        id: widget.initial?.id ?? '',
+        lotId: widget.lotId,
+        saleType: _type,
+        weightG: weight,
+        purity: purity,
+        pricePerG: price,
+        totalMyr: weight * price,
+        customerName: _customer.text.trim(),
+        saleDate: widget.initial?.saleDate ?? DateTime.now(),
+        holdingId: _holding?.id ?? widget.initial?.holdingId,
+        cogsMyr: cogs,
+        notes: _notes.text.isEmpty ? null : _notes.text,
+        createdAt: widget.initial?.createdAt ?? DateTime.now(),
+        lotNumber: widget.initial?.lotNumber,
+      );
+      if (widget.isEditing) {
+        await repo.updateSale(sale);
+      } else {
+        await repo.addSale(sale);
+      }
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) _showError('Failed to save sale: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }

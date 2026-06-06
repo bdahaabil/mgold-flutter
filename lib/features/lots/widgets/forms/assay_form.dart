@@ -11,9 +11,14 @@ class AssayFormDialog extends ConsumerStatefulWidget {
     super.key,
     required this.lotId,
     required this.purchases,
+    this.initial,
   });
+
   final String lotId;
   final List<Purchase> purchases;
+  final AssayResult? initial;
+
+  bool get isEditing => initial != null;
 
   @override
   ConsumerState<AssayFormDialog> createState() => _AssayFormDialogState();
@@ -27,6 +32,19 @@ class _AssayFormDialogState extends ConsumerState<AssayFormDialog> {
   final _notes = TextEditingController();
   bool _saving = false;
 
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    if (initial != null) {
+      _purchaseId = initial.purchaseId;
+      _purity.text = initial.actualPurity.toString();
+      _weight.text = initial.actualWeightG.toString();
+      _lab.text = initial.assayLab ?? '';
+      _notes.text = initial.notes ?? '';
+    }
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
@@ -34,7 +52,7 @@ class _AssayFormDialogState extends ConsumerState<AssayFormDialog> {
   @override
   Widget build(BuildContext context) {
     return FormDialog(
-      title: 'Record Assay',
+      title: widget.isEditing ? 'Edit Assay' : 'Record Assay',
       saving: _saving,
       onSave: _save,
       children: [
@@ -87,19 +105,31 @@ class _AssayFormDialogState extends ConsumerState<AssayFormDialog> {
       return;
     }
     setState(() => _saving = true);
-    final repo = ref.read(lotRepositoryProvider);
-    await repo.addAssay(AssayResult(
-      id: '',
-      lotId: widget.lotId,
-      purchaseId: _purchaseId ?? (widget.purchases.isNotEmpty ? widget.purchases.first.id : null),
-      actualPurity: purity,
-      actualWeightG: weight,
-      assayLab: _lab.text.isEmpty ? null : _lab.text,
-      adjustmentMyr: 0,
-      assayDate: DateTime.now(),
-      notes: _notes.text.isEmpty ? null : _notes.text,
-      createdAt: DateTime.now(),
-    ));
-    if (mounted) Navigator.pop(context, true);
+    try {
+      final repo = ref.read(lotRepositoryProvider);
+      final assay = AssayResult(
+        id: widget.initial?.id ?? '',
+        lotId: widget.lotId,
+        purchaseId: _purchaseId ??
+            (widget.purchases.isNotEmpty ? widget.purchases.first.id : null),
+        actualPurity: purity,
+        actualWeightG: weight,
+        assayLab: _lab.text.isEmpty ? null : _lab.text,
+        adjustmentMyr: widget.initial?.adjustmentMyr ?? 0,
+        assayDate: widget.initial?.assayDate ?? DateTime.now(),
+        notes: _notes.text.isEmpty ? null : _notes.text,
+        createdAt: widget.initial?.createdAt ?? DateTime.now(),
+      );
+      if (widget.isEditing) {
+        await repo.updateAssay(assay);
+      } else {
+        await repo.addAssay(assay);
+      }
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) _showError('Failed to save assay: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }

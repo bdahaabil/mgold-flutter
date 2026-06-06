@@ -16,7 +16,7 @@ class AppTheme {
       seedColor: _gold,
       brightness: brightness,
       primary: _gold,
-      onPrimary: Colors.black,
+      onPrimary: Colors.white,
       secondary: AppTokens.goldDark,
       surface: isDark ? const Color(0xFF1A1A1F) : const Color(0xFFF8F8FA),
       onSurface: isDark ? Colors.white : const Color(0xFF1A1A1F),
@@ -97,7 +97,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: _gold,
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.white,
         elevation: AppTokens.elevationRaised,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),

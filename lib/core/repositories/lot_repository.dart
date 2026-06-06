@@ -153,6 +153,17 @@ class LotRepository {
     );
   }
 
+  Future<void> updatePurchase(Purchase purchase) async {
+    if (!Env.isConfigured) {
+      _local.updatePurchase(purchase);
+      return;
+    }
+    await SupabaseService.client
+        .from('purchases')
+        .update(purchase.toUpdateJson())
+        .eq('id', purchase.id);
+  }
+
   Future<Purchase> addPurchase(Purchase purchase) async {
     if (!Env.isConfigured) {
       return _local.addPurchase(purchase);
@@ -173,6 +184,23 @@ class LotRepository {
       'source': 'purchase',
     });
     return result;
+  }
+
+  Future<void> updateAssay(AssayResult assay) async {
+    if (!Env.isConfigured) {
+      _local.updateAssay(assay);
+      return;
+    }
+    await SupabaseService.client
+        .from('assay_results')
+        .update(assay.toUpdateJson())
+        .eq('id', assay.id);
+    await SupabaseService.client
+        .from('holdings')
+        .update({'purity': assay.actualPurity})
+        .eq('lot_id', assay.lotId)
+        .eq('source', 'purchase')
+        .eq('status', 'in_hand');
   }
 
   Future<AssayResult> addAssay(AssayResult assay) async {
@@ -268,6 +296,17 @@ class LotRepository {
         .select()
         .single();
     return Exchange.fromJson(exchangeData);
+  }
+
+  Future<void> updateSale(Sale sale) async {
+    if (!Env.isConfigured) {
+      _local.updateSale(sale);
+      return;
+    }
+    await SupabaseService.client
+        .from('sales')
+        .update(sale.toUpdateJson())
+        .eq('id', sale.id);
   }
 
   Future<Sale> addSale(Sale sale) async {

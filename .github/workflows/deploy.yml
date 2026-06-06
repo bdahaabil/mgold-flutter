@@ -1,4 +1,4 @@
-name: Build Unsigned iOS IPA
+name: Build iOS IPA + Deploy Web
 
 on:
   push:
@@ -7,6 +7,40 @@ on:
   workflow_dispatch:          # ← optional: allow manual trigger
 
 jobs:
+  deploy-web:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Flutter web
+        run: flutter build web --release --base-href /
+
+      - name: Deploy to Hostinger via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          password: ${{ secrets.HOSTINGER_PASSWORD }}
+          port: ${{ secrets.HOSTINGER_PORT }}
+          source: build/web/
+          target: ${{ secrets.HOSTINGER_REMOTE_PATH }}
+          strip_components: 2
+
   build-ios-unsigned:
     runs-on: macos-latest
 
@@ -38,23 +72,22 @@ jobs:
           pod repo update || true
           pod install --repo-update
 
-      - name: Build unsigned IPA
-        run: |
-          flutter build ipa --no-codesign --release --verbose
+      - name: Build unsigned .app
+        run: flutter build ios --release --no-codesign --verbose
 
-      - name: Package IPA if not already created
+      - name: Package unsigned IPA
         run: |
-          IPA=$(find build/ios/ipa -name "*.ipa" -type f | head -1)
-          if [ -n "$IPA" ]; then
-            echo "IPA found: $IPA"
-          else
-            echo "No .ipa — packaging manually from .app"
-            APP=$(find build/ios -name "*.app" -type d | head -1)
-            [ -z "$APP" ] && echo "ERROR: no .app bundle found" && exit 1
-            mkdir -p build/ios/ipa/Payload
-            cp -r "$APP" build/ios/ipa/Payload/
-            cd build/ios/ipa && zip -r Runner.ipa Payload/
+          APP=$(find build/ios/iphoneos -maxdepth 1 -name "*.app" -type d | head -1)
+          if [ -z "$APP" ]; then
+            echo "ERROR: no .app bundle found in build/ios/iphoneos"
+            exit 1
           fi
+          echo "Packaging $APP"
+          mkdir -p build/ios/ipa/Payload
+          cp -R "$APP" build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r Runner.ipa Payload
+          rm -rf Payload
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4

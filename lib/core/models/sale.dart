@@ -69,4 +69,17 @@ class Sale {
         'cogs_myr': cogsMyr,
         'notes': notes,
       };
+
+  Map<String, dynamic> toUpdateJson() => {
+        'sale_type': saleType.name,
+        'weight_g': weightG,
+        'purity': purity,
+        'price_per_g': pricePerG,
+        'total_myr': totalMyr,
+        'customer_name': customerName,
+        'sale_date': saleDate.toIso8601String().split('T').first,
+        'holding_id': holdingId,
+        'cogs_myr': cogsMyr,
+        'notes': notes,
+      };
 }

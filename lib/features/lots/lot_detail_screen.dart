@@ -4,7 +4,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../app/design/app_spacing.dart';
 import '../../app/design/tokens.dart';
+import '../../core/models/assay_result.dart';
 import '../../core/models/holding.dart';
+import '../../core/models/purchase.dart';
+import '../../core/models/sale.dart';
 import '../../core/providers/dashboard_providers.dart';
 import '../../core/providers/lot_providers.dart';
 import '../../core/providers/supplier_providers.dart';
@@ -116,12 +119,74 @@ class LotDetailScreen extends ConsumerWidget {
                 sales: d.sales,
                 expenses: d.expenses,
                 payments: d.payments,
+                onEditPurchase: (p) => _editPurchase(context, ref, p),
+                onEditAssay: (a) => _editAssay(context, ref, a, d.purchases),
+                onEditSale: (s) => _editSale(context, ref, s, d.holdings),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _editPurchase(
+    BuildContext context,
+    WidgetRef ref,
+    Purchase purchase,
+  ) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => PurchaseFormDialog(lotId: lotId, initial: purchase),
+    );
+    if (saved == true) {
+      _refreshAfterSave(ref);
+    }
+  }
+
+  Future<void> _editAssay(
+    BuildContext context,
+    WidgetRef ref,
+    AssayResult assay,
+    List<Purchase> purchases,
+  ) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => AssayFormDialog(
+        lotId: lotId,
+        purchases: purchases,
+        initial: assay,
+      ),
+    );
+    if (saved == true) {
+      _refreshAfterSave(ref);
+    }
+  }
+
+  Future<void> _editSale(
+    BuildContext context,
+    WidgetRef ref,
+    Sale sale,
+    List<Holding> holdings,
+  ) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => SaleFormDialog(
+        lotId: lotId,
+        holdings: holdings,
+        initial: sale,
+      ),
+    );
+    if (saved == true) {
+      _refreshAfterSave(ref);
+    }
+  }
+
+  void _refreshAfterSave(WidgetRef ref) {
+    ref.invalidate(lotDetailProvider(lotId));
+    ref.read(lotsRefreshProvider.notifier).state++;
+    ref.read(dashboardRefreshProvider.notifier).state++;
+    ref.read(suppliersRefreshProvider.notifier).state++;
   }
 
   Future<void> _showActions(BuildContext context, WidgetRef ref) async {
@@ -177,10 +242,7 @@ class LotDetailScreen extends ConsumerWidget {
         );
     }
     if (saved == true) {
-      ref.invalidate(lotDetailProvider(lotId));
-      ref.read(lotsRefreshProvider.notifier).state++;
-      ref.read(dashboardRefreshProvider.notifier).state++;
-      ref.read(suppliersRefreshProvider.notifier).state++;
+      _refreshAfterSave(ref);
     }
   }
 }

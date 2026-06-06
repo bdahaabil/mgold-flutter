@@ -3,9 +3,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 /// Brand and layout tokens for MGold.
 abstract final class AppTokens {
-  static const Color gold = Color(0xFFD4A017);
-  static const Color goldDark = Color(0xFF8B6914);
-  static const Color goldLight = Color(0xFFF5D76E);
+  static const Color gold = Color(0xFF00897B);
+  static const Color goldDark = Color(0xFF005B4F);
+  static const Color goldLight = Color(0xFF4DB6AC);
 
   // Spacing
   static double get gap4 => 4.h;
